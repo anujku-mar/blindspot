@@ -98,6 +98,19 @@ def trigger_browser_speech(text: str):
         components.html(js_code, height=0, width=0)
 
 # Cached system loading to prevent reloading models on every interaction
+def resolve_sample_path(filename: str) -> Optional[str]:
+    """Find sample image in committed samples folder or original dataset."""
+    name = Path(filename).name
+    p_samples = Path("dataset/samples") / name
+    if p_samples.exists():
+        return str(p_samples)
+    p_orig = Path("dataset/crosswalk/Original") / name
+    if p_orig.exists():
+        return str(p_orig)
+    if Path(filename).exists():
+        return str(filename)
+    return None
+
 @st.cache_resource
 def load_blindspot_system():
     return BlindSpotSystem()
@@ -237,24 +250,25 @@ elif app_mode == "🛑 Module 1: Smart Obstacle Detection":
     if input_source == "Upload Custom Test Image":
         uploaded_file = st.file_uploader("Upload an outdoor street or room image (JPG, PNG, JPEG):", type=['jpg', 'jpeg', 'png'])
         if uploaded_file is not None:
-            image_to_process = cv2.imdecode(np.frombuffer(uploaded_file.read(), np.uint8), cv2.IMREAD_COLOR)
+            image_to_process = cv2.imdecode(np.frombuffer(uploaded_file.getvalue(), np.uint8), cv2.IMREAD_COLOR)
 
     elif input_source == "Use Verified Dataset Sample Image":
         sample_choice = st.selectbox(
             "Choose a street scene with verified obstacles:",
             [
-                ("dataset/crosswalk/Original/c1_p1_48.jpg", "Scene A: Street with Pedestrian (c1_p1_48.jpg)"),
-                ("dataset/crosswalk/Original/c1_p1_46.jpg", "Scene B: Street with Pedestrian on right (c1_p1_46.jpg)"),
-                ("dataset/crosswalk/Original/c1_p1_146.jpg", "Scene C: Street with Motorcycle, Car & Person (c1_p1_146.jpg)"),
-                ("dataset/crosswalk/Original/c1_p1_120.jpg", "Scene D: Street with Multiple Vehicles (c1_p1_120.jpg)"),
-                ("dataset/crosswalk/Original/c1_p1_106.jpg", "Scene E: Street with Park Bench obstacle (c1_p1_106.jpg)"),
-                ("dataset/crosswalk/Original/c1_p1_1.jpg", "Scene F: Clear Zebra Crossing without cars (c1_p1_1.jpg)"),
-                ("dataset/crosswalk/Original/c4_p1_2.jpg", "Scene G: Open Roadway without crosswalk (c4_p1_2.jpg)")
+                ("c1_p1_48.jpg", "Scene A: Street with Pedestrian (c1_p1_48.jpg)"),
+                ("c1_p1_46.jpg", "Scene B: Street with Pedestrian on right (c1_p1_46.jpg)"),
+                ("c1_p1_146.jpg", "Scene C: Street with Motorcycle, Car & Person (c1_p1_146.jpg)"),
+                ("c1_p1_120.jpg", "Scene D: Street with Multiple Vehicles (c1_p1_120.jpg)"),
+                ("c1_p1_106.jpg", "Scene E: Street with Park Bench obstacle (c1_p1_106.jpg)"),
+                ("c1_p1_1.jpg", "Scene F: Clear Zebra Crossing without cars (c1_p1_1.jpg)"),
+                ("c4_p1_2.jpg", "Scene G: Open Roadway without crosswalk (c4_p1_2.jpg)")
             ],
             format_func=lambda x: x[1]
         )
-        if Path(sample_choice[0]).exists():
-            image_to_process = cv2.imread(sample_choice[0])
+        sample_path = resolve_sample_path(sample_choice[0])
+        if sample_path:
+            image_to_process = cv2.imread(sample_path)
 
     elif input_source == "Upload Video / Sample Video":
         video_choice = st.radio("Video Source:", ["Sample Synthetic Motion Video", "Upload MP4 Video"], horizontal=True)
@@ -344,34 +358,35 @@ elif app_mode == "🛑 Module 1: Smart Obstacle Detection":
 # -------------------------------------------------------------
 elif app_mode == "🦓 Module 2: Zebra Crossing Recognition":
     st.markdown('<div class="main-header">🦓 Module 2: Zebra Crossing Recognition & DIP Pipeline</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Fine-Tuned MobileNetV3-Small (97.78% Test Acc) + Classical OpenCV Stripe Periodicity</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Fine-Tuned MobileNetV3-Small (97.78% Test Acc) + Classical OpenCV Stripe Periodicity + Hazard Detection</div>', unsafe_allow_html=True)
 
-    _, cw_recognizer = load_individual_modules()
+    obs_detector, cw_recognizer = load_individual_modules()
 
-    cw_input = st.radio("Choose Input Sample:", [
-        "C1: Front-View Crossing (c1_p1_1.jpg)",
-        "C2: Left-Side Perspective (c2_p1_1.jpg)",
-        "C3: Right-Side Perspective (c3_p1_1.jpg)",
-        "C4: Non-Crosswalk (c4_p1_2.jpg)",
-        "Upload Custom Image"
-    ], horizontal=True)
-
-    img_path_map = {
-        "C1: Front-View Crossing (c1_p1_1.jpg)": "dataset/crosswalk/Original/c1_p1_1.jpg",
-        "C2: Left-Side Perspective (c2_p1_1.jpg)": "dataset/crosswalk/Original/c2_p1_1.jpg",
-        "C3: Right-Side Perspective (c3_p1_1.jpg)": "dataset/crosswalk/Original/c3_p1_1.jpg",
-        "C4: Non-Crosswalk (c4_p1_2.jpg)": "dataset/crosswalk/Original/c4_p1_2.jpg"
+    cw_sample_choices = {
+        "C1: Front-View Crossing (Clear) — c1_p1_1.jpg": "c1_p1_1.jpg",
+        "C1: Front-View with Pedestrian Obstacle — c1_p1_48.jpg": "c1_p1_48.jpg",
+        "C1: Crossing with Vehicles & Person — c1_p1_146.jpg": "c1_p1_146.jpg",
+        "C2: Left-Side Perspective — c2_p1_1.jpg": "c2_p1_1.jpg",
+        "C3: Right-Side Perspective — c3_p1_1.jpg": "c3_p1_1.jpg",
+        "C4: Non-Crosswalk Road — c4_p1_2.jpg": "c4_p1_2.jpg"
     }
 
+    c_sel1, c_sel2 = st.columns([1, 1])
+    with c_sel1:
+        cw_selected = st.selectbox("Select Test Scene:", list(cw_sample_choices.keys()), key="cw_scene_select")
+    with c_sel2:
+        up_file = st.file_uploader("Or upload road scene image (overrides selection):", type=['jpg', 'jpeg', 'png'], key="cw_file_upload")
+
     img_bgr = None
-    if cw_input in img_path_map:
-        p = Path(img_path_map[cw_input])
-        if p.exists():
-            img_bgr = cv2.imread(str(p))
+    if up_file is not None:
+        img_bgr = cv2.imdecode(np.frombuffer(up_file.getvalue(), np.uint8), cv2.IMREAD_COLOR)
+        st.caption(f"📁 Using uploaded image: {up_file.name}")
     else:
-        up_file = st.file_uploader("Upload road scene image:", type=['jpg', 'jpeg', 'png'])
-        if up_file:
-            img_bgr = cv2.imdecode(np.frombuffer(up_file.read(), np.uint8), cv2.IMREAD_COLOR)
+        chosen_file = cw_sample_choices[cw_selected]
+        path_found = resolve_sample_path(chosen_file)
+        if path_found:
+            img_bgr = cv2.imread(path_found)
+            st.caption(f"📌 Using selected sample: {chosen_file}")
 
     if img_bgr is not None:
         c1, c2 = st.columns(2)
@@ -379,31 +394,67 @@ elif app_mode == "🦓 Module 2: Zebra Crossing Recognition":
             st.image(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB), caption="Input Roadway Image", use_container_width=True)
 
         if st.button("🚀 Analyze Zebra Crossing & Road Features", type="primary", use_container_width=True):
-            with st.spinner("Executing hybrid recognition pipeline..."):
+            with st.spinner("Executing hybrid recognition & obstacle hazard pipeline..."):
                 res = cw_recognizer.predict(img_bgr, include_path_awareness=True)
+                obs_res = obs_detector.detect(img_bgr, conf_threshold=conf_slider)
                 
+            # Annotate image with both crosswalk corridor and detected obstacle boxes
+            annotated_out = res['annotated_image'].copy()
+            for obj in obs_res.get('detected_objects', []):
+                x1, y1, x2, y2 = obj['bbox']
+                zone = obj['zone']
+                conf = obj['confidence']
+                name = obj['class_name']
+                color = (0, 140, 255) if zone == 'centre' else (255, 200, 0)
+                cv2.rectangle(annotated_out, (x1, y1), (x2, y2), color, 2)
+                label_text = f"{name.capitalize()} {conf*100:.0f}% [{zone.upper()}]"
+                (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                cv2.rectangle(annotated_out, (x1, max(0, y1 - th - 6)), (x1 + tw + 4, max(th + 6, y1)), color, -1)
+                cv2.putText(annotated_out, label_text, (x1 + 2, max(th, y1 - 3)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
             with c2:
-                st.image(cv2.cvtColor(res['annotated_image'], cv2.COLOR_BGR2RGB), caption="Recognition Output with Corridor Shading", use_container_width=True)
+                st.image(cv2.cvtColor(annotated_out, cv2.COLOR_BGR2RGB), caption="Recognition Output with Corridor & Obstacle Overlay", use_container_width=True)
+
+            # Unified spoken guidance combining crossing state and obstacle awareness
+            if obs_res['count'] > 0:
+                guidance_voice = f"{res['status_text']} {obs_res['voice_alert']}"
+                banner_class = "alert-high" if any(o['zone'] == 'centre' for o in obs_res['detected_objects']) else "alert-med"
+            else:
+                guidance_voice = res['status_text']
+                banner_class = "alert-low" if res['crossing_detected'] else "alert-med"
 
             # Prediction Banner
-            banner_class = "alert-low" if res['crossing_detected'] else "alert-med"
             st.markdown(f"""
             <div class="alert-card {banner_class}">
                 <b>🔊 Spoken Voice Guidance:</b><br>
-                <span style="font-size: 1.3rem; font-weight: 700;">"{res['status_text']}"</span>
+                <span style="font-size: 1.3rem; font-weight: 700;">"{guidance_voice}"</span>
             </div>
             """, unsafe_allow_html=True)
             
             if enable_browser_tts:
-                trigger_browser_speech(res['status_text'])
+                trigger_browser_speech(guidance_voice)
 
-            # Probability Distribution Table
+            # Performance & Verification Breakdown
             st.markdown("### Model Predictions & Verification Breakdown")
-            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
             col_m1.metric("Predicted Category", res['predicted_class_name'])
             col_m2.metric("Classifier Confidence", f"{res['confidence']*100:.1f}%")
             col_m3.metric("Candidate DIP Stripes", res['candidate_stripes_count'])
-            col_m4.metric("Inference Latency", f"{res['latency_ms']} ms")
+            col_m4.metric("Obstacles On/Near Crossing", obs_res['count'])
+            col_m5.metric("Inference Latency", f"{res['latency_ms'] + obs_res['latency_ms']:.1f} ms")
+
+            # Obstacles Breakdown Table (if present)
+            if obs_res['detected_objects']:
+                st.markdown("#### ⚠️ Obstacles Detected in Crossing Scene:")
+                obs_table = []
+                for o in obs_res['detected_objects']:
+                    obs_table.append({
+                        "Entity": o['class_name'].capitalize(),
+                        "Confidence": f"{o['confidence']*100:.1f}%",
+                        "Spatial Zone": o['zone'].upper(),
+                        "Centroid (X, Y)": f"({o['center'][0]}, {o['center'][1]})"
+                    })
+                st.table(obs_table)
 
             st.write("**Softmax Class Probability Distribution:**")
             st.bar_chart(res['class_probabilities'])
@@ -431,33 +482,37 @@ elif app_mode == "🔄 Integrated Multimodal Perception":
     system = load_blindspot_system()
 
     sample_opts = {
-        "Scene 1: Street with Pedestrian crossing (c1_p1_48.jpg)": "dataset/crosswalk/Original/c1_p1_48.jpg",
-        "Scene 2: Street with Motorcycle, Car & Person (c1_p1_146.jpg)": "dataset/crosswalk/Original/c1_p1_146.jpg",
-        "Scene 3: Street with Multiple Vehicles (c1_p1_120.jpg)": "dataset/crosswalk/Original/c1_p1_120.jpg",
-        "Scene 4: Pedestrian on the Right (c1_p1_46.jpg)": "dataset/crosswalk/Original/c1_p1_46.jpg",
-        "Scene 5: Clear Zebra Crossing ahead (c1_p1_1.jpg)": "dataset/crosswalk/Original/c1_p1_1.jpg",
-        "Scene 6: Open Roadway without crossing (c4_p1_2.jpg)": "dataset/crosswalk/Original/c4_p1_2.jpg"
+        "Scene 1: Street with Pedestrian crossing (c1_p1_48.jpg)": "c1_p1_48.jpg",
+        "Scene 2: Street with Motorcycle, Car & Person (c1_p1_146.jpg)": "c1_p1_146.jpg",
+        "Scene 3: Street with Multiple Vehicles (c1_p1_120.jpg)": "c1_p1_120.jpg",
+        "Scene 4: Pedestrian on the Right (c1_p1_46.jpg)": "c1_p1_46.jpg",
+        "Scene 5: Clear Zebra Crossing ahead (c1_p1_1.jpg)": "c1_p1_1.jpg",
+        "Scene 6: Open Roadway without crossing (c4_p1_2.jpg)": "c4_p1_2.jpg"
     }
 
-    input_mode_integrated = st.radio("Choose Input:", ["Select Verified Scene", "Upload Custom Image"], horizontal=True)
-    
+    col_in1, col_in2 = st.columns([1, 1])
+    with col_in1:
+        selected_sample = st.selectbox("Select Verified Test Scene:", list(sample_opts.keys()), key="int_scene_select")
+    with col_in2:
+        uploaded_custom = st.file_uploader("Or upload custom photo to test perception (overrides selection):", type=['jpg', 'jpeg', 'png'], key="int_file_upload")
+
     img = None
-    if input_mode_integrated == "Select Verified Scene":
-        selected_sample = st.selectbox("Select Test Scene:", list(sample_opts.keys()))
-        img_path = sample_opts[selected_sample]
-        if Path(img_path).exists():
-            img = cv2.imread(img_path)
+    if uploaded_custom is not None:
+        img = cv2.imdecode(np.frombuffer(uploaded_custom.getvalue(), np.uint8), cv2.IMREAD_COLOR)
+        st.caption(f"📁 Using uploaded image: {uploaded_custom.name}")
     else:
-        uploaded_custom = st.file_uploader("Upload any outdoor photo to test multimodal perception:", type=['jpg', 'jpeg', 'png'])
-        if uploaded_custom:
-            img = cv2.imdecode(np.frombuffer(uploaded_custom.read(), np.uint8), cv2.IMREAD_COLOR)
+        sample_file = sample_opts[selected_sample]
+        sample_path = resolve_sample_path(sample_file)
+        if sample_path:
+            img = cv2.imread(sample_path)
+            st.caption(f"📌 Using selected sample: {sample_file}")
 
     if img is not None:
         col1, col2 = st.columns([1, 1])
         with col1:
             st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), caption="Raw Camera Input", use_container_width=True)
             
-        with st.spinner("Processing multimodal perception fusion..."):
+        with st.spinner("Processing multimodal perception fusion (YOLOv8n + MobileNetV3 + DIP Corridor)..."):
             res = system.process_frame(img, conf_threshold=conf_slider, include_walking_corridor=True)
             
         with col2:
@@ -487,16 +542,19 @@ elif app_mode == "🔄 Integrated Multimodal Perception":
 
         # Detailed breakdown of detected obstacles
         if res['obstacles']:
-            st.markdown("#### Detected Obstacle Spatial Breakdown:")
+            st.markdown("#### 🛑 Detected Obstacle Spatial Breakdown:")
             obs_table = []
             for o in res['obstacles']:
                 obs_table.append({
                     "Obstacle": o['class_name'].capitalize(),
                     "Spatial Zone": o['zone'].upper(),
                     "Confidence": f"{o['confidence']*100:.1f}%",
-                    "Centroid (X, Y)": f"({o['center'][0]}, {o['center'][1]})"
+                    "Centroid (X, Y)": f"({o['center'][0]}, {o['center'][1]})",
+                    "Bounding Box [x1, y1, x2, y2]": str(o['bbox'])
                 })
             st.table(obs_table)
+        else:
+            st.info(f"No obstacles detected at confidence threshold {conf_slider:.2f}. If you expect faint or distant obstacles, decrease the sensitivity slider in the left sidebar.")
 
 # -------------------------------------------------------------
 # MODE 5: GENUINE EVALUATION & SYLLABUS CONNECTION

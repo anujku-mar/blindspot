@@ -172,7 +172,7 @@ class BlindSpotSystem:
             from modules.image_processing import generate_walkable_path_awareness
             composite = generate_walkable_path_awareness(composite)
 
-        # 3. Obstacle bounding boxes
+        # 3. Obstacle bounding boxes (High-visibility rendering matching Module 1)
         for obj in obs_res.get('detected_objects', []):
             x1, y1, x2, y2 = obj['bbox']
             zone = obj['zone']
@@ -180,8 +180,11 @@ class BlindSpotSystem:
             name = obj['class_name']
             color = (0, 140, 255) if zone == 'centre' else (255, 200, 0)
             cv2.rectangle(composite, (x1, y1), (x2, y2), color, 2)
-            label = f"{name} {conf*100:.0f}% ({zone})"
-            cv2.putText(composite, label, (x1 + 3, max(15, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+            
+            label_text = f"{name.capitalize()} {conf*100:.0f}% [{zone.upper()}]"
+            (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv2.rectangle(composite, (x1, max(0, y1 - th - 6)), (x1 + tw + 4, max(th + 6, y1)), color, -1)
+            cv2.putText(composite, label_text, (x1 + 2, max(th, y1 - 3)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
 
         # 4. Composite Header Alert Banner
         cv2.rectangle(composite, (0, 0), (w, 40), (25, 25, 25), -1)
