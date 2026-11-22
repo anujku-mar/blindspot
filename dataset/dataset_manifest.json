@@ -1,0 +1,32 @@
+{
+  "dataset_name": "Kaggle Crosswalk Dataset (davidsilvam/crosswalkdataset)",
+  "total_files_found": 600,
+  "valid_images_count": 600,
+  "corrupted_count": 0,
+  "classes": {
+    "c1": {
+      "name": "front_crossing",
+      "description": "Front-view zebra crossing"
+    },
+    "c2": {
+      "name": "left_side_perspective",
+      "description": "Left perspective zebra crossing"
+    },
+    "c3": {
+      "name": "right_side_perspective",
+      "description": "Right perspective zebra crossing"
+    },
+    "c4": {
+      "name": "non_crosswalk",
+      "description": "Road scenes without zebra crossing"
+    }
+  },
+  "class_distribution": {
+    "c1": 150,
+    "c2": 150,
+    "c3": 150,
+    "c4": 150
+  },
+  "image_dimensions": "1280x720",
+  "format": "JPEG"
+}

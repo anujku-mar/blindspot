@@ -1,0 +1,51 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Pytest
+.pytest_cache/
+*.pytest_cache
+
+# Ultralytics / YOLO local config
+.ultralytics/
+
+# Matplotlib config
+.matplotlib/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Large dataset images (137 MB total — excluded from git to stay under GitHub's 100 MB limit)
+# The app only needs models/ at runtime; dataset/ is only needed for local training.
+dataset/crosswalk/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Local env files
+.env
+.env.local
+
+# Streamlit secrets
+.streamlit/secrets.toml

@@ -1,0 +1,80 @@
+{
+  "model_name": "MobileNetV3-Small (Fine-tuned for 4-class Crosswalk Recognition)",
+  "architecture": "MobileNetV3-Small with custom Linear classifier head and Dropout(0.3)",
+  "total_dataset_size": 600,
+  "splits": {
+    "train": 420,
+    "val": 90,
+    "test": 90
+  },
+  "training_epochs": 15,
+  "training_time_seconds": 499.24,
+  "mean_cpu_latency_ms": 43.03,
+  "approximate_fps_cpu": 23.2,
+  "device_used": "cpu",
+  "test_metrics": {
+    "accuracy": 0.9778,
+    "macro_precision": 0.9782,
+    "macro_recall": 0.9778,
+    "macro_f1": 0.9778,
+    "per_class": {
+      "Front-View Crossing": {
+        "precision": 1.0,
+        "recall": 0.9565,
+        "f1_score": 0.9778,
+        "support": 23
+      },
+      "Left-Side Perspective": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "support": 22
+      },
+      "Right-Side Perspective": {
+        "precision": 0.9583,
+        "recall": 1.0,
+        "f1_score": 0.9787,
+        "support": 23
+      },
+      "Non-Crosswalk": {
+        "precision": 0.9545,
+        "recall": 0.9545,
+        "f1_score": 0.9545,
+        "support": 22
+      }
+    }
+  },
+  "confusion_matrix": [
+    [
+      22,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      22,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      23,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      21
+    ]
+  ],
+  "classical_glcm_baseline": {
+    "model": "GLCM Texture Features + Random Forest (10 classical features)",
+    "accuracy": 0.7888888888888889,
+    "macro_precision": 0.7937255496047836,
+    "macro_recall": 0.788888888888889,
+    "macro_f1": 0.7898731681309868
+  }
+}
